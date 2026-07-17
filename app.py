@@ -5,6 +5,15 @@ from datetime import datetime
 import math
 
 # ============================================================================
+# Session State Initialization
+# ============================================================================
+
+if 'app_mode' not in st.session_state:
+    st.session_state.app_mode = "BMI Calculator"
+if 'workout_category' not in st.session_state:
+    st.session_state.workout_category = None
+
+# ============================================================================
 # Core BMI Functions
 # ============================================================================
 
@@ -150,7 +159,6 @@ def get_workout_plan(category, goal):
     key = (category, goal)
     if key in WORKOUT_PLANS:
         return WORKOUT_PLANS[key]
-    # Fallback
     if goal == "lose":
         return WORKOUT_PLANS.get(("Overweight", "lose"), ["Start with walking and light activity"])
     elif goal == "build":
@@ -200,12 +208,18 @@ st.markdown("""
 
 st.markdown('<div class="main-header">💪 BMI & Fitness Toolkit</div>', unsafe_allow_html=True)
 
-# Sidebar navigation
+# ============================================================================
+# Sidebar Navigation
+# ============================================================================
+
 st.sidebar.title("📋 Menu")
 app_mode = st.sidebar.radio(
     "Choose a tool:",
-    ["BMI Calculator", "Fitness Calculator", "Workout Planner", "History", "Progress Trend"]
+    ["BMI Calculator", "Fitness Calculator", "Workout Planner", "History", "Progress Trend"],
+    index=["BMI Calculator", "Fitness Calculator", "Workout Planner", "History", "Progress Trend"].index(st.session_state.app_mode)
 )
+
+st.session_state.app_mode = app_mode
 
 # ============================================================================
 # BMI Calculator
@@ -266,10 +280,8 @@ if app_mode == "BMI Calculator":
                     note = "⚠️ Above the commonly used 0.5 healthy threshold"
                 st.info(f"**Waist-to-Height Ratio:** {ratio:.2f}\n{note}")
             
-            # Save to history
             save_to_history(name, bmi, category)
             
-            # Diet suggestions
             st.markdown("### 🥗 General Diet Suggestions")
             if category == "Underweight":
                 st.info("""
@@ -289,17 +301,18 @@ if app_mode == "BMI Calculator":
                 - Cut back on sugary drinks and fried snacks
                 - Regular movement pairs well with diet changes
                 """)
-            else:  # Obese
+            else:
                 st.error("""
                 - Small, gradual changes tend to stick better than drastic ones
                 - Reducing processed/fried food and sugary drinks is a good start
                 - Consider speaking to a doctor or nutritionist for a personal plan
                 """)
             
-            # Workout offer
+            # FIXED: This button now redirects to Workout Planner
             if st.button("💪 Get Workout Plan"):
+                st.session_state.app_mode = "Workout Planner"
                 st.session_state.workout_category = category
-                st.session_state.show_workout = True
+                st.rerun()
 
 # ============================================================================
 # Fitness Calculator
@@ -358,10 +371,8 @@ elif app_mode == "Fitness Calculator":
                 goal_data.append({"Goal": goal_name, "Calories": f"{cals:.0f} kcal/day"})
             st.dataframe(pd.DataFrame(goal_data), hide_index=True, use_container_width=True)
             
-            # Macro breakdown
             st.markdown("### 📊 Macro Breakdown")
             
-            # Let user select a goal to see macros
             goal_options = list(goals.keys())
             selected_goal = st.selectbox("Select a goal for macro breakdown:", goal_options)
             selected_cals = goals[selected_goal]
@@ -375,7 +386,6 @@ elif app_mode == "Fitness Calculator":
             with col_c:
                 st.metric("Fat", f"{macros['Fat']:.0f}g", f"{macros['Fat']*9:.0f} kcal")
             
-            # Body fat estimate
             if st.checkbox("Estimate Body Fat % (requires measurements)"):
                 st.markdown("### 📏 Body Fat Estimate (US Navy Method)")
                 height_cm = height * 100
@@ -385,9 +395,9 @@ elif app_mode == "Fitness Calculator":
                 if gender == "Female":
                     hip = st.number_input("Hip (cm)", min_value=20.0, step=0.1, value=95.0)
                 
-                if hip is not None:  # Female
+                if hip is not None:
                     bf = 495 / (1.29579 - 0.35004 * math.log10(waist + hip - neck) + 0.22100 * math.log10(height_cm)) - 450
-                else:  # Male
+                else:
                     bf = 495 / (1.0324 - 0.19077 * math.log10(waist - neck) + 0.15456 * math.log10(height_cm)) - 450
                 
                 st.info(f"**Estimated Body Fat:** {bf:.1f}%")
@@ -547,7 +557,6 @@ elif app_mode == "Progress Trend":
             with col4:
                 st.metric("Entries", len(data))
             
-            # Display data table
             st.dataframe(df, hide_index=True, use_container_width=True)
 
 # ============================================================================
